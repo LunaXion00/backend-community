@@ -8,19 +8,18 @@ import org.springframework.stereotype.Component;
 @Component
 public class AuthorMapper {
     public AuthorDTO toAuthorDTO(User author){
-        if (UserStatus.WITHDRAWN.equals(author.getStatus())) {
-            return new AuthorDTO(
-                    author.getUserId(),
-                    author.getStatus(),
-                    "알 수 없음",
-                    null
-            );
-        }
-        return new AuthorDTO(
+        return toAuthorDTO(
                 author.getUserId(),
                 author.getStatus(),
                 author.getNickname(),
                 author.getProfileImageUrl()
         );
+    }
+
+    public AuthorDTO toAuthorDTO(Long userId, UserStatus status, String nickname, String profileImageUrl) {
+        if (UserStatus.WITHDRAWN.equals(status)) {
+            return new AuthorDTO(userId, status, "알 수 없음", null);
+        }
+        return new AuthorDTO(userId, status, nickname, profileImageUrl);
     }
 }

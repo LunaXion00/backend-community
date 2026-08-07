@@ -16,11 +16,10 @@ import com.example.community.post.repository.ReportRepository;
 import com.example.community.realtime.event.PostCreatedEvent;
 import com.example.community.user.entity.User;
 import com.example.community.user.entity.UserRole;
+import com.example.community.user.entity.UserStatus;
 import com.example.community.user.repository.UserRepository;
 import jakarta.validation.Valid;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
@@ -82,20 +81,21 @@ public class PostService {
     public PostPageResponseDTO getPostList(int page){
         if (page < 0) throw new InvalidInputException();
 
-        Page<Post> postPage = postRepository.findByStatusNot(
-                PostStatus.DELETED,
-                PageRequest.of(page, POST_PAGE_SIZE)
-        );
-        List<PostListResponseDTO> posts = postPage.getContent().stream()
+        List<PostListResponseDTO> posts = postRepository.findByStatusNot(
+                PostStatus.DELETED.name(),
+                (long) page * POST_PAGE_SIZE
+        ).stream()
                 .map(this::toPostListResponseDTO)
                 .toList();
+        long totalElements = postRepository.countByStatusNot(PostStatus.DELETED);
+        int totalPages = (int) ((totalElements + POST_PAGE_SIZE - 1) / POST_PAGE_SIZE);
 
         return new PostPageResponseDTO(
                 posts,
-                postPage.getNumber(),
-                postPage.getSize(),
-                postPage.getTotalElements(),
-                postPage.getTotalPages()
+                page,
+                POST_PAGE_SIZE,
+                totalElements,
+                totalPages
         );
     }
 
@@ -184,19 +184,24 @@ public class PostService {
     }
 
     // ----------------------------------- 추가 메서드 -----------------------------------
-    private PostListResponseDTO toPostListResponseDTO(Post post){
-        if (post.isBlinded()) {
-            PostItemDTO postItemDTO = new PostItemDTO(
-                    post.getPostId(),
-                    "숨김 처리된 게시글",
-                    post.getCreatedAt(),
-                    post.getLikes(),
-                    post.getComments(),
-                    post.getViews()
-            );
-            return new PostListResponseDTO(authorMapper.toAuthorDTO(post.getAuthor()), postItemDTO);
-        }
-        return new PostListResponseDTO(authorMapper.toAuthorDTO(post.getAuthor()), new PostItemDTO(post));
+    private PostListResponseDTO toPostListResponseDTO(PostRepository.PostListProjection post) {
+        AuthorDTO author = authorMapper.toAuthorDTO(
+                post.getUserId(),
+                UserStatus.valueOf(post.getUserStatus()),
+                post.getNickname(),
+                post.getProfileImageUrl()
+        );
+        PostItemDTO postItem = new PostItemDTO(
+                post.getPostId(),
+                PostStatus.BLINDED.name().equals(post.getPostStatus())
+                        ? "숨김 처리된 게시글"
+                        : post.getTitle(),
+                post.getCreatedAt(),
+                post.getLikes(),
+                post.getComments(),
+                post.getViews()
+        );
+        return new PostListResponseDTO(author, postItem);
     }
 
     private MetaDTO toMetaDTO(Post post, boolean liked){

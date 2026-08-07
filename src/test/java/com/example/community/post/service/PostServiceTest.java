@@ -28,11 +28,9 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -46,6 +44,8 @@ class PostServiceTest {
 
     @Mock
     PostRepository postRepository;
+    @Mock
+    PostRepository.PostListProjection postListProjection;
     @Mock
     UserRepository userRepository;
     @Mock
@@ -138,14 +138,31 @@ class PostServiceTest {
     @Test
     @DisplayName("블라인드 게시글은 숨김 제목으로 목록에 반환된다.")
     void getPostList_blindedPostReturnsHiddenTitle() {
-        post.blindPost();
-        when(postRepository.findByStatusNot(PostStatus.DELETED, PageRequest.of(0, 20)))
-                .thenReturn(new PageImpl<>(List.of(post), PageRequest.of(0, 20), 1));
+        LocalDateTime createdAt = LocalDateTime.of(2026, 8, 6, 14, 0);
+        when(postListProjection.getPostId()).thenReturn(1L);
+        when(postListProjection.getPostStatus()).thenReturn(PostStatus.BLINDED.name());
+        when(postListProjection.getCreatedAt()).thenReturn(createdAt);
+        when(postListProjection.getLikes()).thenReturn(2);
+        when(postListProjection.getComments()).thenReturn(3);
+        when(postListProjection.getViews()).thenReturn(4);
+        when(postListProjection.getUserId()).thenReturn(1L);
+        when(postListProjection.getUserStatus()).thenReturn(UserStatus.ACTIVE.name());
+        when(postListProjection.getNickname()).thenReturn("tester");
+        when(postListProjection.getProfileImageUrl()).thenReturn("");
+        when(postRepository.findByStatusNot(PostStatus.DELETED.name(), 0L))
+                .thenReturn(List.of(postListProjection));
+        when(postRepository.countByStatusNot(PostStatus.DELETED)).thenReturn(1L);
+        when(authorMapper.toAuthorDTO(1L, UserStatus.ACTIVE, "tester", ""))
+                .thenReturn(authorDTO);
 
         PostPageResponseDTO result = postService.getPostList(0);
 
         assertThat(result.getPosts()).hasSize(1);
+        assertThat(result.getPosts().get(0).getAuthor().getNickname()).isEqualTo("tester");
+        assertThat(result.getPosts().get(0).getPost().getPostId()).isEqualTo(1L);
         assertThat(result.getPosts().get(0).getPost().getTitle()).isEqualTo("숨김 처리된 게시글");
+        assertThat(result.getPosts().get(0).getPost().getCreatedAt()).isEqualTo(createdAt);
+        assertThat(result.getPosts().get(0).getPost().getLikes()).isEqualTo(2);
         assertThat(result.getPage()).isZero();
         assertThat(result.getSize()).isEqualTo(20);
         assertThat(result.getTotalElements()).isEqualTo(1);
@@ -155,9 +172,9 @@ class PostServiceTest {
     @Test
     @DisplayName("게시글 목록은 요청 페이지를 20개 고정 크기로 조회한다.")
     void getPostList_usesFixedPageSize() {
-        Pageable pageable = PageRequest.of(1, 20);
-        when(postRepository.findByStatusNot(PostStatus.DELETED, pageable))
-                .thenReturn(new PageImpl<>(List.of(), pageable, 21));
+        when(postRepository.findByStatusNot(PostStatus.DELETED.name(), 20L))
+                .thenReturn(List.of());
+        when(postRepository.countByStatusNot(PostStatus.DELETED)).thenReturn(21L);
 
         PostPageResponseDTO result = postService.getPostList(1);
 
@@ -166,7 +183,8 @@ class PostServiceTest {
         assertThat(result.getSize()).isEqualTo(20);
         assertThat(result.getTotalElements()).isEqualTo(21);
         assertThat(result.getTotalPages()).isEqualTo(2);
-        verify(postRepository).findByStatusNot(PostStatus.DELETED, pageable);
+        verify(postRepository).findByStatusNot(PostStatus.DELETED.name(), 20L);
+        verify(postRepository).countByStatusNot(PostStatus.DELETED);
     }
 
     @Test

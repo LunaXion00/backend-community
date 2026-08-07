@@ -3,6 +3,7 @@ package com.example.community.post.integration;
 import com.example.community.comment.repository.CommentRepository;
 import com.example.community.post.draft.repository.PostDraftRepository;
 import com.example.community.post.entity.Post;
+import com.example.community.post.entity.PostStatus;
 import com.example.community.post.repository.PostLikeRepository;
 import com.example.community.post.repository.PostRepository;
 import com.example.community.post.repository.PostRevisionRepository;
@@ -15,6 +16,11 @@ import com.example.community.user.repository.UserCredentialRepository;
 import com.example.community.user.repository.UserRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.EntityManagerFactory;
+import jakarta.persistence.PersistenceContext;
+import org.hibernate.SessionFactory;
+import org.hibernate.stat.Statistics;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -62,6 +68,10 @@ class PostIntegrationTest {
     PostDraftRepository postDraftRepository;
     @Autowired
     PasswordEncoder passwordEncoder;
+    @Autowired
+    EntityManagerFactory entityManagerFactory;
+    @PersistenceContext
+    EntityManager entityManager;
 
     User user;
     User otherUser;
@@ -199,6 +209,56 @@ class PostIntegrationTest {
                         .header("Authorization", "Bearer " + accessToken))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("invalid_input"));
+    }
+
+    @Test
+    @DisplayName("delayed join projection은 한 번의 SQL로 offset 페이지를 조회한다")
+    void findByStatusNot_returnsOrderedOffsetPageWithoutNPlusOne() {
+        LocalDateTime sameCreatedAt = LocalDateTime.of(2026, 8, 6, 14, 0);
+        List<Post> posts = new ArrayList<>();
+
+        for (int index = 0; index < 25; index++) {
+            Post post = new Post(user, "title " + index, "body", "");
+            ReflectionTestUtils.setField(post, "createdAt", sameCreatedAt);
+            if (index == 5) {
+                post.deletePost();
+            } else if (index == 10) {
+                post.blindPost();
+            }
+            posts.add(postRepository.save(post));
+        }
+
+        postRepository.flush();
+        entityManager.clear();
+
+        Statistics statistics = entityManagerFactory.unwrap(SessionFactory.class).getStatistics();
+        statistics.setStatisticsEnabled(true);
+        statistics.clear();
+
+        List<Long> expectedPostIds = new ArrayList<>();
+        for (int index = 20; index >= 0; index--) {
+            if (index != 5) {
+                expectedPostIds.add(posts.get(index).getPostId());
+            }
+        }
+
+        List<PostRepository.PostListProjection> result = postRepository.findByStatusNot(
+                PostStatus.DELETED.name(),
+                4L
+        );
+
+        assertThat(result).hasSize(20);
+        assertThat(result)
+                .extracting(PostRepository.PostListProjection::getPostId)
+                .containsExactlyElementsOf(expectedPostIds);
+        assertThat(result).allMatch(row -> row.getCreatedAt().equals(sameCreatedAt));
+        assertThat(result).allMatch(row -> !PostStatus.DELETED.name().equals(row.getPostStatus()));
+        assertThat(result).anyMatch(row -> PostStatus.BLINDED.name().equals(row.getPostStatus()));
+        assertThat(result).allMatch(row -> row.getUserId().equals(user.getUserId()));
+        assertThat(result).allMatch(row -> row.getNickname().equals(user.getNickname()));
+        assertThat(statistics.getPrepareStatementCount()).isEqualTo(1);
+
+        statistics.setStatisticsEnabled(false);
     }
 
     @Test

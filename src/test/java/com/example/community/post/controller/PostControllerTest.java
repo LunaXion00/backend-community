@@ -207,6 +207,7 @@ class PostControllerTest {
 
         verifyNoInteractions(postService);
     }
+
     @Test
     @DisplayName("게시글 상세 조회 성공 시 200")
     void getPostDetail_success_returns200() throws Exception {
