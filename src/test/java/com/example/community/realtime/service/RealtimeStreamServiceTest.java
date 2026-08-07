@@ -1,7 +1,7 @@
 package com.example.community.realtime.service;
 
 import com.example.community.CommunityApplication;
-import com.example.community.global.auth.AuthValidator;
+import com.example.community.global.security.AuthValidator;
 import com.example.community.global.exceptions.ContentNotFoundException;
 import com.example.community.global.exceptions.ForbiddenException;
 import com.example.community.global.exceptions.InvalidInputException;
@@ -40,6 +40,8 @@ import static org.mockito.Mockito.when;
 
 class RealtimeStreamServiceTest {
 
+    private static final String SESSION_ID = "session-1";
+
     RealtimeConnectionRegistry registry;
     SseEmitter emitter;
     RealtimeConnection connection;
@@ -51,18 +53,18 @@ class RealtimeStreamServiceTest {
         registry = mock(RealtimeConnectionRegistry.class);
         emitter = mock(SseEmitter.class);
         authValidator = mock(AuthValidator.class);
-        connection = new RealtimeConnection("connection-1", 1L, emitter);
-        when(registry.register(eq(1L), same(emitter))).thenReturn(connection);
+        connection = new RealtimeConnection("connection-1", 1L, SESSION_ID, emitter);
+        when(registry.register(eq(1L), eq(SESSION_ID), same(emitter))).thenReturn(connection);
         service = new RealtimeStreamService(registry, authValidator);
     }
 
     @Test
     @DisplayName("연결을 등록하고 connected 이벤트를 전송한다")
     void connectsAndSendsConnectedEvent() throws Exception {
-        SseEmitter result = service.connect(1L, emitter);
+        SseEmitter result = service.connect(1L, SESSION_ID, emitter);
 
         assertThat(result).isSameAs(emitter);
-        verify(registry).register(eq(1L), same(emitter));
+        verify(registry).register(eq(1L), eq(SESSION_ID), same(emitter));
 
         ArgumentCaptor<SseEmitter.SseEventBuilder> eventCaptor =
                 ArgumentCaptor.forClass(SseEmitter.SseEventBuilder.class);
@@ -81,7 +83,7 @@ class RealtimeStreamServiceTest {
     @Test
     @DisplayName("연결 종료 callback은 registry에서 연결을 제거한다")
     void cleanupCallbacksRemoveRegisteredConnection() throws Exception {
-        service.connect(1L, emitter);
+        service.connect(1L, SESSION_ID, emitter);
 
         ArgumentCaptor<Runnable> completionCaptor = ArgumentCaptor.forClass(Runnable.class);
         ArgumentCaptor<Runnable> timeoutCaptor = ArgumentCaptor.forClass(Runnable.class);
@@ -106,7 +108,7 @@ class RealtimeStreamServiceTest {
                 .when(emitter)
                 .send(any(SseEmitter.SseEventBuilder.class));
 
-        assertThatThrownBy(() -> service.connect(1L, emitter))
+        assertThatThrownBy(() -> service.connect(1L, SESSION_ID, emitter))
                 .isInstanceOf(IOException.class)
                 .hasMessage("send failed");
 
@@ -132,11 +134,11 @@ class RealtimeStreamServiceTest {
         SseEmitter runtimeFailedEmitter = mock(SseEmitter.class);
         SseEmitter activeEmitter = mock(SseEmitter.class);
         RealtimeConnection ioFailedConnection =
-                new RealtimeConnection("io-failed", 1L, ioFailedEmitter);
+                new RealtimeConnection("io-failed", 1L, SESSION_ID, ioFailedEmitter);
         RealtimeConnection runtimeFailedConnection =
-                new RealtimeConnection("runtime-failed", 2L, runtimeFailedEmitter);
+                new RealtimeConnection("runtime-failed", 2L, SESSION_ID, runtimeFailedEmitter);
         RealtimeConnection activeConnection =
-                new RealtimeConnection("active-connection", 3L, activeEmitter);
+                new RealtimeConnection("active-connection", 3L, SESSION_ID, activeEmitter);
         when(registry.findAll()).thenReturn(List.of(
                 ioFailedConnection,
                 runtimeFailedConnection,
@@ -290,13 +292,13 @@ class RealtimeStreamServiceTest {
         SseEmitter detailEmitter = mock(SseEmitter.class);
         SseEmitter actorEmitter = mock(SseEmitter.class);
         RealtimeConnection firstListConnection =
-                new RealtimeConnection("list-1", 2L, firstListEmitter);
+                new RealtimeConnection("list-1", 2L, SESSION_ID, firstListEmitter);
         RealtimeConnection secondListConnection =
-                new RealtimeConnection("list-2", 2L, secondListEmitter);
+                new RealtimeConnection("list-2", 2L, SESSION_ID, secondListEmitter);
         RealtimeConnection detailConnection =
-                new RealtimeConnection("detail", 3L, detailEmitter);
+                new RealtimeConnection("detail", 3L, SESSION_ID, detailEmitter);
         RealtimeConnection actorConnection =
-                new RealtimeConnection("actor", 1L, actorEmitter);
+                new RealtimeConnection("actor", 1L, SESSION_ID, actorEmitter);
         firstListConnection.updateInterestIfNewer(RealtimeInterestType.POST_LIST, null, 1L);
         secondListConnection.updateInterestIfNewer(RealtimeInterestType.POST_LIST, null, 1L);
         detailConnection.updateInterestIfNewer(RealtimeInterestType.POST_DETAIL, 10L, 1L);
@@ -354,8 +356,8 @@ class RealtimeStreamServiceTest {
     void postCreatedFailureDoesNotBlockOtherConnections() throws Exception {
         SseEmitter failedEmitter = mock(SseEmitter.class);
         SseEmitter activeEmitter = mock(SseEmitter.class);
-        RealtimeConnection failedConnection = new RealtimeConnection("failed", 2L, failedEmitter);
-        RealtimeConnection activeConnection = new RealtimeConnection("active", 3L, activeEmitter);
+        RealtimeConnection failedConnection = new RealtimeConnection("failed", 2L, SESSION_ID, failedEmitter);
+        RealtimeConnection activeConnection = new RealtimeConnection("active", 3L, SESSION_ID, activeEmitter);
         failedConnection.updateInterestIfNewer(RealtimeInterestType.POST_LIST, null, 1L);
         activeConnection.updateInterestIfNewer(RealtimeInterestType.POST_LIST, null, 1L);
         when(registry.findAll()).thenReturn(List.of(failedConnection, activeConnection));
@@ -381,13 +383,13 @@ class RealtimeStreamServiceTest {
         SseEmitter listEmitter = mock(SseEmitter.class);
         SseEmitter actorEmitter = mock(SseEmitter.class);
         RealtimeConnection matchingConnection =
-                new RealtimeConnection("matching", 2L, matchingEmitter);
+                new RealtimeConnection("matching", 2L, SESSION_ID, matchingEmitter);
         RealtimeConnection otherPostConnection =
-                new RealtimeConnection("other-post", 3L, otherPostEmitter);
+                new RealtimeConnection("other-post", 3L, SESSION_ID, otherPostEmitter);
         RealtimeConnection listConnection =
-                new RealtimeConnection("list", 4L, listEmitter);
+                new RealtimeConnection("list", 4L, SESSION_ID, listEmitter);
         RealtimeConnection actorConnection =
-                new RealtimeConnection("actor", 1L, actorEmitter);
+                new RealtimeConnection("actor", 1L, SESSION_ID, actorEmitter);
         matchingConnection.updateInterestIfNewer(RealtimeInterestType.POST_DETAIL, 10L, 1L);
         otherPostConnection.updateInterestIfNewer(RealtimeInterestType.POST_DETAIL, 11L, 1L);
         listConnection.updateInterestIfNewer(RealtimeInterestType.POST_LIST, null, 1L);
@@ -436,8 +438,8 @@ class RealtimeStreamServiceTest {
     void commentCreatedFailureDoesNotBlockOtherConnections() throws Exception {
         SseEmitter failedEmitter = mock(SseEmitter.class);
         SseEmitter activeEmitter = mock(SseEmitter.class);
-        RealtimeConnection failedConnection = new RealtimeConnection("failed", 2L, failedEmitter);
-        RealtimeConnection activeConnection = new RealtimeConnection("active", 3L, activeEmitter);
+        RealtimeConnection failedConnection = new RealtimeConnection("failed", 2L, SESSION_ID, failedEmitter);
+        RealtimeConnection activeConnection = new RealtimeConnection("active", 3L, SESSION_ID, activeEmitter);
         failedConnection.updateInterestIfNewer(RealtimeInterestType.POST_DETAIL, 10L, 1L);
         activeConnection.updateInterestIfNewer(RealtimeInterestType.POST_DETAIL, 10L, 1L);
         when(registry.findAll()).thenReturn(List.of(failedConnection, activeConnection));
@@ -454,5 +456,72 @@ class RealtimeStreamServiceTest {
 
         verify(registry).remove("failed", failedEmitter);
         verify(activeEmitter).send(any(SseEmitter.SseEventBuilder.class));
+    }
+
+    @Test
+    @DisplayName("session-replaced는 이전 session의 모든 연결에 전송하고 연결을 종료한다")
+    void sendsSessionReplacedToOldSessionConnectionsAndClosesThem() throws Exception {
+        SseEmitter firstOldEmitter = mock(SseEmitter.class);
+        SseEmitter secondOldEmitter = mock(SseEmitter.class);
+        RealtimeConnection firstOldConnection = new RealtimeConnection(
+                "old-1", 1L, "session-old", firstOldEmitter
+        );
+        RealtimeConnection secondOldConnection = new RealtimeConnection(
+                "old-2", 1L, "session-old", secondOldEmitter
+        );
+        when(registry.findBySessionId("session-old")).thenReturn(List.of(
+                firstOldConnection,
+                secondOldConnection
+        ));
+
+        service.sendSessionReplaced("session-old");
+
+        ArgumentCaptor<SseEmitter.SseEventBuilder> eventCaptor =
+                ArgumentCaptor.forClass(SseEmitter.SseEventBuilder.class);
+        verify(firstOldEmitter).send(eventCaptor.capture());
+        verify(secondOldEmitter).send(any(SseEmitter.SseEventBuilder.class));
+        verify(firstOldEmitter).complete();
+        verify(secondOldEmitter).complete();
+        List<Object> eventParts = eventCaptor.getValue().build().stream()
+                .map(SseEmitter.DataWithMediaType::getData)
+                .toList();
+        assertThat(eventParts.stream()
+                .filter(String.class::isInstance)
+                .map(String.class::cast)
+                .anyMatch(part -> part.contains("event:session-replaced"))).isTrue();
+        assertThat(eventParts).anySatisfy(part -> {
+            assertThat(part).isInstanceOf(Map.class);
+            Map<?, ?> payload = (Map<?, ?>) part;
+            assertThat(payload.containsKey("reason")).isTrue();
+            assertThat(payload.containsKey("sessionId")).isFalse();
+            assertThat(payload.containsKey("accessToken")).isFalse();
+            assertThat(payload.containsKey("refreshToken")).isFalse();
+            assertThat(payload.containsKey("userId")).isFalse();
+        });
+    }
+
+    @Test
+    @DisplayName("session-replaced 전송 실패가 다른 연결 전달을 막지 않는다")
+    void sessionReplacedFailureDoesNotBlockOtherConnections() throws Exception {
+        SseEmitter failedEmitter = mock(SseEmitter.class);
+        SseEmitter activeEmitter = mock(SseEmitter.class);
+        RealtimeConnection failedConnection = new RealtimeConnection(
+                "failed", 1L, "session-old", failedEmitter
+        );
+        RealtimeConnection activeConnection = new RealtimeConnection(
+                "active", 1L, "session-old", activeEmitter
+        );
+        when(registry.findBySessionId("session-old"))
+                .thenReturn(List.of(failedConnection, activeConnection));
+        doThrow(new IOException("session replacement failed"))
+                .when(failedEmitter)
+                .send(any(SseEmitter.SseEventBuilder.class));
+
+        service.sendSessionReplaced("session-old");
+
+        verify(registry).remove("failed", failedEmitter);
+        verify(failedEmitter).complete();
+        verify(activeEmitter).send(any(SseEmitter.SseEventBuilder.class));
+        verify(activeEmitter).complete();
     }
 }

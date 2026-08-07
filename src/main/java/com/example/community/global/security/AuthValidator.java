@@ -1,10 +1,8 @@
-package com.example.community.global.auth;
+package com.example.community.global.security;
 
 import com.example.community.global.exceptions.ForbiddenException;
-import com.example.community.global.exceptions.UnauthorizedException;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 
 @Component
 @AllArgsConstructor

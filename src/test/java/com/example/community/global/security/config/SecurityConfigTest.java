@@ -1,17 +1,19 @@
-package com.example.community.global.auth;
+package com.example.community.global.security.config;
 
-import com.example.community.global.config.SecurityConfig;
+import com.example.community.global.security.jwt.JwtToken;
+import com.example.community.global.security.jwt.JwtTokenProvider;
+import com.example.community.auth.controller.AuthController;
+import com.example.community.auth.dto.LoginResponseDTO;
+import com.example.community.auth.service.AuthService;
 import com.example.community.global.controller.AdminController;
 import com.example.community.post.controller.PostController;
 import com.example.community.post.dto.PostPageResponseDTO;
 import com.example.community.post.service.PostService;
 import com.example.community.user.controller.UserController;
-import com.example.community.user.dto.LoginResponseDTO;
 import com.example.community.user.dto.SignUpRequestDTO;
 import com.example.community.user.dto.SignUpResponseDTO;
 import com.example.community.user.entity.User;
 import com.example.community.user.entity.UserRole;
-import com.example.community.user.entity.UserStatus;
 import com.example.community.user.factory.UserFactory;
 import com.example.community.user.service.UserService;
 import org.junit.jupiter.api.DisplayName;
@@ -31,15 +33,19 @@ import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@WebMvcTest(controllers = {UserController.class, PostController.class, AdminController.class})
+@WebMvcTest(controllers = {AuthController.class, UserController.class, PostController.class, AdminController.class})
 @Import(SecurityConfig.class)
 public class SecurityConfigTest {
     @Autowired
     MockMvc mockMvc;
     @MockitoBean
     UserService userService;
+    @MockitoBean
+    AuthService authService;
     @MockitoBean
     PostService postService;
     @MockitoBean
@@ -50,9 +56,9 @@ public class SecurityConfigTest {
     @Test
     @DisplayName("로그인 요청은 인증 없이도 로그인이 가능하다.")
     void loginRequest_canBeAccessedWithoutLogin() throws Exception {
-        when(userService.login(any())).thenReturn(new LoginResponseDTO(1, new JwtToken("Bearer", "access-token1", "access-token2"), "nickname", ""));
+        when(authService.login(any())).thenReturn(new LoginResponseDTO(1, new JwtToken("Bearer", "access-token1", "access-token2"), "nickname", ""));
 
-        mockMvc.perform(post("/api/users/login").contentType(MediaType.APPLICATION_JSON).content("""
+        mockMvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON).content("""
                     {
                         "email":"test@test.com",
                         "password":"Test1234!"
@@ -78,7 +84,10 @@ public class SecurityConfigTest {
     @Test
     @DisplayName("그 외 엔드포인트들은 인증이 필요하다.")
     void otherRequest_deniedWithoutAuthentication() throws Exception {
-        mockMvc.perform(get("/api/posts")).andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/posts"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.message").value("unauthorized_user"));
     }
 
     @Test
@@ -86,7 +95,7 @@ public class SecurityConfigTest {
     void otherRequest_canBeAccessedWithAuthentication() throws Exception{
         when(postService.getPostList(0)).thenReturn(new PostPageResponseDTO(List.of(), 0, 20, 0, 0));
 
-        mockMvc.perform(get("/api/posts").with(user("test")).header("Authorization", "Bearer access-token")).andExpect(status().isOk());
+        mockMvc.perform(get("/api/posts").with(user("test"))).andExpect(status().isOk());
     }
 
     @Test

@@ -1,7 +1,7 @@
 package com.example.community.post.draft.service;
 
-import com.example.community.global.auth.AuthValidator;
-import com.example.community.global.auth.JwtToken;
+import com.example.community.global.security.AuthValidator;
+import com.example.community.global.security.jwt.JwtToken;
 import com.example.community.global.exceptions.ConflictException;
 import com.example.community.global.exceptions.ContentNotFoundException;
 import com.example.community.global.exceptions.ForbiddenException;
@@ -64,7 +64,6 @@ public class PostDraftServiceTest {
 
     PostDraft draft;
     Post post;
-    JwtToken jwtToken;
 
     PostDraftRequestDTO requestDTO;
     PostDraftRequestDTO overwriteRequestDTO;

@@ -8,15 +8,17 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 public class RealtimeConnection {
     private final String connectionId;
     private final long userId;
+    private final String sessionId;
     private final SseEmitter emitter;
 
     private RealtimeInterestType interestType;
     private Long postId;
     private long interestRevision;
 
-    public RealtimeConnection(String connectionId, long userId, SseEmitter sseEmitter){
+    public RealtimeConnection(String connectionId, long userId, String sessionId, SseEmitter sseEmitter){
         this.connectionId = connectionId;
         this.userId = userId;
+        this.sessionId = sessionId;
         this.emitter = sseEmitter;
         interestType = RealtimeInterestType.NONE;
         postId = null;

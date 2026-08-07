@@ -1,6 +1,10 @@
-package com.example.community.global.config.filter;
+package com.example.community.global.security.filter;
 
-import com.example.community.global.auth.JwtTokenProvider;
+import com.example.community.global.security.jwt.JwtTokenProvider;
+import com.example.community.global.security.jwt.JwtToken;
+import com.example.community.user.entity.User;
+import com.example.community.user.entity.UserRole;
+import com.example.community.user.entity.UserStatus;
 import jakarta.servlet.ServletException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -54,7 +58,7 @@ public class JwtFilterTest {
                         List.of(new SimpleGrantedAuthority("ROLE_ADMIN"))
                 );
 
-        when(jwtTokenProvider.validateToken("valid-jwt-token")).thenReturn(true);
+        when(jwtTokenProvider.validateAccessToken("valid-jwt-token")).thenReturn(true);
         when(jwtTokenProvider.getAuthentication("valid-jwt-token")).thenReturn(mockAuthentication);
         jwtFilter.doFilter(request, response, chain);
 
@@ -72,9 +76,50 @@ public class JwtFilterTest {
         MockHttpServletResponse response = new MockHttpServletResponse();
         MockFilterChain chain = new MockFilterChain();
 
-        when(jwtTokenProvider.validateToken("invalid-jwt-token")).thenReturn(false);
+        when(jwtTokenProvider.validateAccessToken("invalid-jwt-token")).thenReturn(false);
 
         jwtFilter.doFilter(request, response, chain);
         assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
+    }
+
+    @Test
+    @DisplayName("만료된 Access Token이면 access_token_expired를 반환하고 chain을 진행하지 않는다.")
+    void expiredAccessToken_returnsExpiredMessage() throws ServletException, IOException {
+        String testSecret = "Y29tbXVuaXR5LXRlc3Qtb25seS1qd3Qtc2lnbmluZy1rZXktMjAyNg==";
+        JwtTokenProvider realProvider = new JwtTokenProvider(testSecret, 0L, 6000L);
+        User user = new User(1L, "tester", "", UserRole.ROLE_USER, UserStatus.ACTIVE);
+        JwtToken token = realProvider.createJwtToken(user, "session-1");
+        JwtFilter expiredFilter = new JwtFilter(realProvider);
+
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setRequestURI("/api/posts");
+        request.addHeader("Authorization", "Bearer " + token.getAccessToken());
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        MockFilterChain chain = new MockFilterChain();
+
+        expiredFilter.doFilter(request, response, chain);
+
+        assertThat(response.getStatus()).isEqualTo(401);
+        assertThat(response.getContentAsString()).contains("access_token_expired");
+        assertThat(chain.getRequest()).isNull();
+    }
+
+    @Test
+    @DisplayName("잘못된 Access Token이면 access_token_invalid를 반환하고 chain을 진행하지 않는다.")
+    void invalidAccessToken_returnsInvalidMessage() throws ServletException, IOException {
+        String testSecret = "Y29tbXVuaXR5LXRlc3Qtb25seS1qd3Qtc2lnbmluZy1rZXktMjAyNg==";
+        JwtFilter invalidFilter = new JwtFilter(new JwtTokenProvider(testSecret, 3000L, 6000L));
+
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setRequestURI("/api/posts");
+        request.addHeader("Authorization", "Bearer malformed-token");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        MockFilterChain chain = new MockFilterChain();
+
+        invalidFilter.doFilter(request, response, chain);
+
+        assertThat(response.getStatus()).isEqualTo(401);
+        assertThat(response.getContentAsString()).contains("access_token_invalid");
+        assertThat(chain.getRequest()).isNull();
     }
 }

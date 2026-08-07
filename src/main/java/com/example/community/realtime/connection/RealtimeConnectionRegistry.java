@@ -4,6 +4,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -12,9 +13,9 @@ import java.util.concurrent.ConcurrentHashMap;
 public class RealtimeConnectionRegistry {
     private final ConcurrentHashMap<String, RealtimeConnection> connections = new ConcurrentHashMap<>();
 
-    public RealtimeConnection register(long userId, SseEmitter sseEmitter){
+    public RealtimeConnection register(long userId, String sessionId, SseEmitter sseEmitter){
         String connectionId = UUID.randomUUID().toString();
-        RealtimeConnection connection = new RealtimeConnection(connectionId, userId, sseEmitter);
+        RealtimeConnection connection = new RealtimeConnection(connectionId, userId, sessionId, sseEmitter);
         connections.put(connectionId, connection);
         return connection;
     }
@@ -25,6 +26,11 @@ public class RealtimeConnectionRegistry {
 
     public List<RealtimeConnection> findAll(){
         return List.copyOf(connections.values());
+    }
+
+    public List<RealtimeConnection> findBySessionId(String sessionId){
+        return connections.values().stream()
+                .filter(connection-> Objects.equals(connection.getSessionId(), sessionId)).toList();
     }
 
     public void remove(String connectionId, SseEmitter sseEmitter){

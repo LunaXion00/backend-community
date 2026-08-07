@@ -1,8 +1,8 @@
 package com.example.community.post.draft.controller;
 
-import com.example.community.global.auth.JwtTokenProvider;
-import com.example.community.global.config.SecurityConfig;
-import com.example.community.global.config.filter.JwtFilter;
+import com.example.community.global.security.jwt.JwtTokenProvider;
+import com.example.community.global.security.config.SecurityConfig;
+import com.example.community.global.security.filter.JwtFilter;
 import com.example.community.global.dto.AuthorDTO;
 import com.example.community.global.exceptions.ConflictException;
 import com.example.community.global.exceptions.ContentNotFoundException;

@@ -1,6 +1,6 @@
 package com.example.community.realtime.service;
 
-import com.example.community.global.auth.AuthValidator;
+import com.example.community.global.security.AuthValidator;
 import com.example.community.global.exceptions.ContentNotFoundException;
 import com.example.community.global.exceptions.InvalidInputException;
 import com.example.community.realtime.connection.RealtimeConnection;
@@ -28,12 +28,15 @@ public class RealtimeStreamService {
         this.authValidator = authValidator;
     }
 
-    public SseEmitter connect(long userId, SseEmitter sseEmitter) throws IOException{
-        RealtimeConnection connection = registry.register(userId, sseEmitter);
+    public SseEmitter connect(long userId, String sessionId, SseEmitter sseEmitter) throws IOException{
+        RealtimeConnection connection = registry.register(userId, sessionId, sseEmitter);
         String connectionId = connection.getConnectionId();
         try {
             sseEmitter.onCompletion(() -> registry.remove(connectionId, sseEmitter));
-            sseEmitter.onTimeout(() -> registry.remove(connectionId, sseEmitter));
+            sseEmitter.onTimeout(() -> {
+                registry.remove(connectionId, sseEmitter);
+                sseEmitter.complete();
+            });
             sseEmitter.onError(error -> registry.remove(connectionId, sseEmitter));
             sseEmitter.send(SseEmitter.event()
                     .name("connected")
@@ -86,6 +89,20 @@ public class RealtimeStreamService {
                             "commentId", event.commentId()
                     ));
             sendEventToClient(connection.getConnectionId(), connection.getEmitter(), sseEvent);
+        }
+    }
+
+    public void sendSessionReplaced(String sessionId){
+        for(RealtimeConnection connection : registry.findBySessionId(sessionId)){
+            SseEmitter.SseEventBuilder sseEvent = SseEmitter.event()
+                    .name("session-replaced")
+                    .data(Map.of("reason", "new_login"));
+            sendEventToClient(connection.getConnectionId(), connection.getEmitter(), sseEvent);
+            try {
+                connection.getEmitter().complete();
+            } catch (RuntimeException exception) {
+                registry.remove(connection.getConnectionId(), connection.getEmitter());
+            }
         }
     }
 

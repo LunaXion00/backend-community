@@ -1,7 +1,7 @@
 package com.example.community.realtime.controller;
 
 import com.example.community.global.ApiResponse;
-import com.example.community.global.auth.JwtTokenProvider;
+import com.example.community.global.security.jwt.JwtTokenProvider;
 import com.example.community.realtime.dto.RealtimeInterestRequestDTO;
 import com.example.community.realtime.service.RealtimeStreamService;
 import jakarta.validation.Valid;
@@ -34,9 +34,10 @@ public class RealtimeStreamController {
     @GetMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter stream(Authentication authentication, @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization) throws IOException {
         long userId = getLoginUserId(authentication);
+        String sessionId = jwtTokenProvider.getSessionId(resolveAccessToken(authorization));
         long timeoutMillis = getTimeoutMillis(authorization);
         SseEmitter sseEmitter = new SseEmitter(timeoutMillis);
-        return streamService.connect(userId, sseEmitter);
+        return streamService.connect(userId, sessionId, sseEmitter);
     }
 
     @PatchMapping("/connections/{connectionId}/interest")
@@ -67,5 +68,13 @@ public class RealtimeStreamController {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
         }
         return Math.min(MAX_CONNECTION_TIMEOUT_MILLIS, remainingMillis);
+    }
+    private String resolveAccessToken(String authorization) {
+        if (authorization == null
+                || !authorization.startsWith(BEARER_PREFIX)
+                || authorization.length() == BEARER_PREFIX.length()) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
+        }
+        return authorization.substring(BEARER_PREFIX.length());
     }
 }

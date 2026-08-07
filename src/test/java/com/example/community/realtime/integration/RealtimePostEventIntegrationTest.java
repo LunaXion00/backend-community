@@ -167,7 +167,7 @@ class RealtimePostEventIntegrationTest {
     }
 
     private void connectRecipientToPostList() throws Exception {
-        realtimeStreamService.connect(recipient.getUserId(), recipientEmitter);
+        realtimeStreamService.connect(recipient.getUserId(), "session-recipient", recipientEmitter);
         RealtimeConnection connection = registry.findAll().stream()
                 .findFirst()
                 .orElseThrow();

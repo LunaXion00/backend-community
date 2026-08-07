@@ -1,6 +1,7 @@
 package com.example.community.user.service;
 
-import com.example.community.global.auth.*;
+import com.example.community.auth.session.RefreshSessionStore;
+import com.example.community.global.security.AuthValidator;
 import com.example.community.global.exceptions.*;
 import com.example.community.user.dto.*;
 import com.example.community.user.entity.User;
@@ -25,39 +26,17 @@ public class UserService {
     private final AuthValidator authValidator;
     private final UserFactory userFactory;
     private final UserCredentialFactory userCredentialFactory;
-    private final JwtTokenProvider jwtTokenProvider;
     private final PasswordEncoder passwordEncoder;
+    private final RefreshSessionStore refreshSessionStore;
 
-    public UserService(UserRepository userRepository, UserCredentialRepository userCredentialRepository, AuthValidator authValidator, UserFactory userFactory, UserCredentialFactory userCredentialFactory, JwtTokenProvider jwtTokenProvider, PasswordEncoder passwordEncoder) {
+    public UserService(UserRepository userRepository, UserCredentialRepository userCredentialRepository, AuthValidator authValidator, UserFactory userFactory, UserCredentialFactory userCredentialFactory, PasswordEncoder passwordEncoder, RefreshSessionStore refreshSessionStore) {
         this.userRepository = userRepository;
         this.userCredentialRepository = userCredentialRepository;
         this.authValidator = authValidator;
         this.userFactory = userFactory;
         this.userCredentialFactory = userCredentialFactory;
-        this.jwtTokenProvider = jwtTokenProvider;
         this.passwordEncoder = passwordEncoder;
-    }
-
-    // ----------------------------------- 로그인, 토큰 생성 -----------------------------------
-    @Transactional
-    public LoginResponseDTO login(@Valid LoginRequestDTO requestDTO) {
-        String email = requestDTO.getEmail();
-        String password = requestDTO.getPassword();
-
-        UserCredential credential = userCredentialRepository.findByEmail(email).orElseThrow(NotRegisteredException::new);
-        User user = credential.getUser();
-
-        if (!user.isActive()) throw new NotRegisteredException();
-        if (!passwordEncoder.matches(password, credential.getPassword())) throw new PasswordInvalidException();
-
-        JwtToken token = jwtTokenProvider.createJwtToken(user);
-
-        return new LoginResponseDTO(user.getUserId(), token, user.getNickname(), user.getProfileImageUrl());
-    }
-    // ----------------------------------- 로그아웃, 토큰 삭제 -----------------------------------
-    @Transactional
-    public void logout(Long userId){
-
+        this.refreshSessionStore = refreshSessionStore;
     }
     // ----------------------------------- 회원가입(유저 생성) -----------------------------------
     @Transactional
@@ -102,6 +81,7 @@ public class UserService {
         authValidator.validateOwner(loginUserId, targetUserId);
         User user = userRepository.findById(targetUserId).orElseThrow(NotRegisteredException::new);
         user.withDraw();
+        refreshSessionStore.deleteByUserId(targetUserId);
         return new WithdrawResponseDTO(LocalDateTime.now());
     }
 }

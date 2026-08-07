@@ -2,32 +2,21 @@ package com.example.community.user.controller;
 
 import com.example.community.global.ApiResponse;
 import com.example.community.user.dto.*;
-import com.example.community.user.entity.UserRole;
 import com.example.community.user.service.UserService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.GrantedAuthority;
 import org.springframework.web.bind.annotation.*;
+
 
 @RestController
 @RequestMapping("/api/users")
 public class UserController {
     private final UserService userService;
+
     public UserController(UserService userService) {
         this.userService = userService;
-    }
-    @PostMapping("/login")
-    public ResponseEntity<ApiResponse<LoginResponseDTO>> login(@Valid @RequestBody LoginRequestDTO requestDTO) {
-        LoginResponseDTO responseDTO = userService.login(requestDTO);
-        return ResponseEntity.ok(new ApiResponse<>("user_login_success", responseDTO));
-    }
-    @PostMapping("/logout")
-    public ResponseEntity<ApiResponse<String>> logout(Authentication authentication) {
-        Long loginUserId = getLoginUserId(authentication);
-        userService.logout(loginUserId);
-        return ResponseEntity.ok(new ApiResponse<>("logout_success", null));
     }
     @PostMapping("/signup")
     public ResponseEntity<ApiResponse<SignUpResponseDTO>> signUp(@Valid @RequestBody SignUpRequestDTO requestDTO) {

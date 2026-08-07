@@ -13,8 +13,8 @@ class RealtimeConnectionRegistryTest {
     void registersAndFindsMultipleConnectionsForSameUser() {
         RealtimeConnectionRegistry registry = new RealtimeConnectionRegistry();
 
-        RealtimeConnection first = registry.register(1L, new SseEmitter());
-        RealtimeConnection second = registry.register(1L, new SseEmitter());
+        RealtimeConnection first = registry.register(1L, "session-1", new SseEmitter());
+        RealtimeConnection second = registry.register(1L, "session-1", new SseEmitter());
 
         assertThat(first.getConnectionId()).isNotBlank();
         assertThat(second.getConnectionId()).isNotEqualTo(first.getConnectionId());
@@ -24,11 +24,32 @@ class RealtimeConnectionRegistryTest {
     }
 
     @Test
+    @DisplayName("연결 등록 시 sessionId를 저장한다")
+    void registersConnectionWithSessionId() {
+        RealtimeConnectionRegistry registry = new RealtimeConnectionRegistry();
+        RealtimeConnection connection = registry.register(1L, "session-1", new SseEmitter());
+
+        assertThat(connection.getSessionId()).isEqualTo("session-1");
+    }
+
+    @Test
+    @DisplayName("sessionId가 일치하는 연결만 조회한다")
+    void findsConnectionsBySessionId() {
+        RealtimeConnectionRegistry registry = new RealtimeConnectionRegistry();
+        RealtimeConnection oldSession = registry.register(1L, "session-old", new SseEmitter());
+        RealtimeConnection anotherOldSession = registry.register(1L, "session-old", new SseEmitter());
+        registry.register(1L, "session-current", new SseEmitter());
+
+        assertThat(registry.findBySessionId("session-old"))
+                .containsExactlyInAnyOrder(oldSession, anotherOldSession);
+    }
+
+    @Test
     @DisplayName("같은 emitter일 때만 연결을 제거한다")
     void removesConnectionOnlyWhenEmitterMatches() {
         RealtimeConnectionRegistry registry = new RealtimeConnectionRegistry();
         SseEmitter emitter = new SseEmitter();
-        RealtimeConnection connection = registry.register(1L, emitter);
+        RealtimeConnection connection = registry.register(1L, "session-1", emitter);
 
         registry.remove(connection.getConnectionId(), new SseEmitter());
         assertThat(registry.findById(connection.getConnectionId())).contains(connection);

@@ -2,7 +2,6 @@ package com.example.community.realtime.integration;
 
 import com.example.community.comment.dto.CommentRequestDTO;
 import com.example.community.comment.dto.CommentResponseDTO;
-import com.example.community.comment.entity.Comment;
 import com.example.community.comment.repository.CommentRepository;
 import com.example.community.comment.service.CommentService;
 import com.example.community.post.entity.Post;
@@ -105,7 +104,7 @@ class RealtimeCommentEventIntegrationTest {
     @Test
     @DisplayName("실제 댓글·대댓글 생성 commit 후 최소 식별자를 전달한다")
     void uploadCommentPublishesCommentCreatedAfterCommit() throws Exception {
-        realtimeStreamService.connect(recipient.getUserId(), recipientEmitter);
+        realtimeStreamService.connect(recipient.getUserId(), "session-recipient", recipientEmitter);
         RealtimeConnection connection = registry.findAll().stream()
                 .findFirst()
                 .orElseThrow();

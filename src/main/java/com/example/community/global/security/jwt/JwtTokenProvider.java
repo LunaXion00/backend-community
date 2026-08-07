@@ -1,4 +1,4 @@
-package com.example.community.global.auth;
+package com.example.community.global.security.jwt;
 
 import com.example.community.user.entity.User;
 import io.jsonwebtoken.Claims;
@@ -19,6 +19,9 @@ import java.util.List;
 
 @Component
 public class JwtTokenProvider {
+    private static final String ACCESS_TOKEN_TYPE = "access";
+    private static final String REFRESH_TOKEN_TYPE = "refresh";
+
     private final SecretKey key;
     private final long accessTokenExpirationMs;
     private final long refreshTokenExpirationMs;
@@ -32,9 +35,10 @@ public class JwtTokenProvider {
         this.refreshTokenExpirationMs = refreshTokenExpirationMs;
     }
 
-    public JwtToken createJwtToken(User user){
-        String accessToken = createAccessToken(user);
-        String refreshToken = createRefreshToken(user);
+    public JwtToken createJwtToken(User user, String sessionId){
+        validateSessionId(sessionId);
+        String accessToken = createToken(user, accessTokenExpirationMs, sessionId, ACCESS_TOKEN_TYPE);
+        String refreshToken = createToken(user, refreshTokenExpirationMs, sessionId, REFRESH_TOKEN_TYPE);
 
         return JwtToken.builder()
                 .grantType("Bearer")
@@ -42,22 +46,29 @@ public class JwtTokenProvider {
                 .refreshToken(refreshToken)
                 .build();
     }
-    public String createAccessToken(User user){
-        return createToken(user, accessTokenExpirationMs);
-    }
-    public String createRefreshToken(User user){
-        return createToken(user, refreshTokenExpirationMs);
-    }
     public Long getUserId(String token){
         return Long.valueOf(parseClaims(token).getSubject());
     }
     public String getRole(String token){
         return parseClaims(token).get("role", String.class);
     }
-    public boolean validateToken(String token){
+    public String getSessionId(String token){
+        return parseClaims(token).get("sessionId", String.class);
+    }
+    public String getTokenType(String token){
+        return parseClaims(token).get("tokenType", String.class);
+    }
+    public boolean validateAccessToken(String token){
+        return validateTokenType(token, ACCESS_TOKEN_TYPE);
+    }
+
+    public boolean validateRefreshToken(String token){
+        return validateTokenType(token, REFRESH_TOKEN_TYPE);
+    }
+
+    private boolean validateTokenType(String token, String expectedType) {
         try{
-            parseClaims(token);
-            return true;
+            return expectedType.equals(getTokenType(token));
         } catch(Exception e){
             return false;
         }
@@ -74,16 +85,24 @@ public class JwtTokenProvider {
         );
     }
 
-    private String createToken(User user, long expirationMs) {
+    private String createToken(User user, long expirationMs, String sessionId, String tokenType) {
         Date now = new Date();
         Date expiration = new Date(now.getTime() + expirationMs);
         return Jwts.builder()
                 .subject(String.valueOf(user.getUserId()))
                 .claim("role", user.getRole().name())
+                .claim("sessionId", sessionId)
+                .claim("tokenType", tokenType)
                 .issuedAt(now)
                 .expiration(expiration)
                 .signWith(key)
                 .compact();
+    }
+
+    private void validateSessionId(String sessionId) {
+        if (sessionId == null || sessionId.isBlank()) {
+            throw new IllegalArgumentException("sessionId must not be blank");
+        }
     }
     private Claims parseClaims(String token){
         return Jwts.parser()

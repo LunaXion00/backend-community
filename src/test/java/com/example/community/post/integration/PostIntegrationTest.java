@@ -1,7 +1,6 @@
 package com.example.community.post.integration;
 
 import com.example.community.comment.repository.CommentRepository;
-import com.example.community.global.auth.TokenRepository;
 import com.example.community.post.draft.repository.PostDraftRepository;
 import com.example.community.post.entity.Post;
 import com.example.community.post.repository.PostLikeRepository;
@@ -62,8 +61,6 @@ class PostIntegrationTest {
     @Autowired
     PostDraftRepository postDraftRepository;
     @Autowired
-    TokenRepository tokenRepository;
-    @Autowired
     PasswordEncoder passwordEncoder;
 
     User user;
@@ -94,7 +91,6 @@ class PostIntegrationTest {
         reportRepository.deleteAll();
         postRevisionRepository.deleteAll();
         postDraftRepository.deleteAll();
-        tokenRepository.deleteAll();
 
         postRepository.deleteAll();
 
@@ -372,7 +368,7 @@ class PostIntegrationTest {
     }
 
     private String loginAndGetAccessToken(String email) throws Exception {
-        String response = mockMvc.perform(post("/api/users/login")
+        String response = mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                             {

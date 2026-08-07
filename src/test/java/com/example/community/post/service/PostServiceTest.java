@@ -1,6 +1,6 @@
 package com.example.community.post.service;
 
-import com.example.community.global.auth.AuthValidator;
+import com.example.community.global.security.AuthValidator;
 import com.example.community.global.dto.AuthorDTO;
 import com.example.community.global.exceptions.*;
 import com.example.community.global.mapper.AuthorMapper;

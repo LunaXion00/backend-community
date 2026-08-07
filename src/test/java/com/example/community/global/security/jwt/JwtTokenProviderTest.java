@@ -1,4 +1,4 @@
-package com.example.community.global.auth;
+package com.example.community.global.security.jwt;
 
 import com.example.community.user.entity.User;
 import com.example.community.user.entity.UserRole;
@@ -10,6 +10,7 @@ import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 
 public class JwtTokenProviderTest {
     private static final String TEST_SECRET = "Y29tbXVuaXR5LXRlc3Qtb25seS1qd3Qtc2lnbmluZy1rZXktMjAyNg==";
+    private static final String SESSION_ID = "session-1";
     private final JwtTokenProvider jwtTokenProvider = new JwtTokenProvider(TEST_SECRET, 3000L, 6000L);
 
     @Test
@@ -17,7 +18,7 @@ public class JwtTokenProviderTest {
     void createJwtToken() {
         User user = new User(1L, "tester", "", UserRole.ROLE_USER, UserStatus.ACTIVE);
 
-        JwtToken jwtToken = jwtTokenProvider.createJwtToken(user);
+        JwtToken jwtToken = jwtTokenProvider.createJwtToken(user, SESSION_ID);
 
         assertThat(jwtToken.getGrantType()).isEqualTo("Bearer");
         assertThat(jwtToken.getAccessToken()).isNotBlank();
@@ -28,7 +29,7 @@ public class JwtTokenProviderTest {
     @DisplayName("Access Token을 토대로 UserId를 추출.")
     void createJwtToken_andExtractUserId(){
         User user = new User(1L, "test", "", UserRole.ROLE_USER, UserStatus.ACTIVE);
-        JwtToken token = jwtTokenProvider.createJwtToken(user);
+        JwtToken token = jwtTokenProvider.createJwtToken(user, SESSION_ID);
         assertThat(jwtTokenProvider.getUserId(token.getAccessToken())).isEqualTo(1L);
     }
 
@@ -36,7 +37,7 @@ public class JwtTokenProviderTest {
     @DisplayName("Access Token은 role기반 생성, 추출 가능.")
     void createJwtToken_andExtractUserRole(){
         User admin = new User(1L, "test", "", UserRole.ROLE_ADMIN, UserStatus.ACTIVE);
-        JwtToken token = jwtTokenProvider.createJwtToken(admin);
+        JwtToken token = jwtTokenProvider.createJwtToken(admin, SESSION_ID);
         assertThat(jwtTokenProvider.getRole(token.getAccessToken())).isEqualTo("ROLE_ADMIN");
     }
 
@@ -44,8 +45,8 @@ public class JwtTokenProviderTest {
     @DisplayName("정상적으로 발급된 토큰은 유효.")
     void validTokenTest(){
         User user = new User(1L, "test", "", UserRole.ROLE_USER, UserStatus.ACTIVE);
-        JwtToken token = jwtTokenProvider.createJwtToken(user);
-        assertThat(jwtTokenProvider.validateToken(token.getAccessToken())).isTrue();
+        JwtToken token = jwtTokenProvider.createJwtToken(user, SESSION_ID);
+        assertThat(jwtTokenProvider.validateAccessToken(token.getAccessToken())).isTrue();
     }
 
     @Test
@@ -53,21 +54,21 @@ public class JwtTokenProviderTest {
     void expiredTokenTest() throws InterruptedException {
         JwtTokenProvider shortProvider = new JwtTokenProvider(TEST_SECRET, 0L, 1000L);
         User user = new User(1L, "test", "", UserRole.ROLE_USER, UserStatus.ACTIVE);
-        JwtToken token = shortProvider.createJwtToken(user);
-        assertThat(jwtTokenProvider.validateToken(token.getAccessToken())).isFalse();
+        JwtToken token = shortProvider.createJwtToken(user, SESSION_ID);
+        assertThat(jwtTokenProvider.validateAccessToken(token.getAccessToken())).isFalse();
     }
 
     @Test
     @DisplayName("잘못된 토큰은 유효하지 않음.")
     void invalidTokenTest(){
-        assertThat(jwtTokenProvider.validateToken("invalid_token")).isFalse();
+        assertThat(jwtTokenProvider.validateAccessToken("invalid_token")).isFalse();
     }
 
     @Test
     @DisplayName("Access Token의 남은 유효시간을 밀리초로 반환한다")
     void getsRemainingAccessTokenValidityMillis() {
         User user = new User(1L, "test", "", UserRole.ROLE_USER, UserStatus.ACTIVE);
-        String accessToken = jwtTokenProvider.createAccessToken(user);
+        String accessToken = jwtTokenProvider.createJwtToken(user, SESSION_ID).getAccessToken();
 
         long remainingMillis = jwtTokenProvider.getRemainingValidityMillis(accessToken);
 
@@ -79,7 +80,7 @@ public class JwtTokenProviderTest {
     void expiredAccessTokenHasNoRemainingValidity() {
         JwtTokenProvider expiredProvider = new JwtTokenProvider(TEST_SECRET, 0L, 1000L);
         User user = new User(1L, "test", "", UserRole.ROLE_USER, UserStatus.ACTIVE);
-        String accessToken = expiredProvider.createAccessToken(user);
+        String accessToken = expiredProvider.createJwtToken(user, SESSION_ID).getAccessToken();
 
         assertThat(expiredProvider.getRemainingValidityMillis(accessToken)).isZero();
     }

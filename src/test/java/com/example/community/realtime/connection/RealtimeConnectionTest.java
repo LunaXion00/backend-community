@@ -11,7 +11,9 @@ public class RealtimeConnectionTest {
     void connection_init_test(){
         SseEmitter emitter = new SseEmitter();
 
-        RealtimeConnection connection = new RealtimeConnection("connection-1", 1L, emitter);
+        RealtimeConnection connection = new RealtimeConnection(
+                "connection-1", 1L, "session-1", emitter
+        );
 
         assertThat(connection.getConnectionId()).isEqualTo("connection-1");
         assertThat(connection.getUserId()).isEqualTo(1L);
@@ -20,12 +22,27 @@ public class RealtimeConnectionTest {
         assertThat(connection.getPostId()).isNull();
         assertThat(connection.getInterestRevision()).isZero();
     }
+
+    @Test
+    @DisplayName("연결은 로그인 sessionId를 보존한다")
+    void connectionStoresSessionId() {
+        RealtimeConnection connection = new RealtimeConnection(
+                "connection-1",
+                1L,
+                "session-1",
+                new SseEmitter()
+        );
+
+        assertThat(connection.getSessionId()).isEqualTo("session-1");
+    }
+
     @Test
     @DisplayName("더 큰 revision만 관심 상태에 반영한다")
     void updatesInterestOnlyWhenRevisionIsNewer() {
         RealtimeConnection connection = new RealtimeConnection(
                 "connection-1",
                 1L,
+                "session-1",
                 new SseEmitter()
         );
 

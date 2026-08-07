@@ -43,9 +43,9 @@ class RealtimeEventTransactionTest {
         listEmitter = mock(SseEmitter.class);
         detailEmitter = mock(SseEmitter.class);
 
-        RealtimeConnection listConnection = new RealtimeConnection("list", 2L, listEmitter);
+        RealtimeConnection listConnection = new RealtimeConnection("list", 2L, "session-list", listEmitter);
         listConnection.updateInterestIfNewer(RealtimeInterestType.POST_LIST, null, 1L);
-        RealtimeConnection detailConnection = new RealtimeConnection("detail", 3L, detailEmitter);
+        RealtimeConnection detailConnection = new RealtimeConnection("detail", 3L, "session-detail", detailEmitter);
         detailConnection.updateInterestIfNewer(RealtimeInterestType.POST_DETAIL, 10L, 1L);
         when(registry.findAll()).thenReturn(List.of(listConnection, detailConnection));
     }

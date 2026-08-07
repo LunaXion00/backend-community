@@ -1,6 +1,6 @@
-package com.example.community.user.dto;
+package com.example.community.auth.dto;
 
-import com.example.community.global.auth.JwtToken;
+import com.example.community.global.security.jwt.JwtToken;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 

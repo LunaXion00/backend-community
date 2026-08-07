@@ -15,11 +15,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
+import org.springframework.http.HttpHeaders;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -55,7 +57,7 @@ public class UserIntegrationTest {
     @Test
     @DisplayName("로그인 요청이 Controller-Service-Repository를 거쳐 JWT를 반환한다.")
     void login_success() throws Exception {
-        mockMvc.perform(post("/api/users/login")
+        mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                         {
@@ -68,7 +70,8 @@ public class UserIntegrationTest {
                 .andExpect(jsonPath("$.data.userId").value(user.getUserId()))
                 .andExpect(jsonPath("$.data.token.grantType").value("Bearer"))
                 .andExpect(jsonPath("$.data.token.accessToken").isNotEmpty())
-                .andExpect(jsonPath("$.data.token.refreshToken").isNotEmpty())
+                .andExpect(jsonPath("$.data.token.refreshToken").doesNotExist())
+                .andExpect(header().string(HttpHeaders.SET_COOKIE, containsString("refresh_token=")))
                 .andExpect(jsonPath("$.data.nickname").value("tester"));
     }
 
@@ -157,7 +160,7 @@ public class UserIntegrationTest {
     }
 
     private String loginAndGetAccessToken() throws Exception {
-        String response = mockMvc.perform(post("/api/users/login")
+        String response = mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                         {

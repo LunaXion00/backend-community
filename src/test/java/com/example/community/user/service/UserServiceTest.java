@@ -1,7 +1,8 @@
 package com.example.community.user.service;
 
-import com.example.community.global.auth.*;
+import com.example.community.global.security.AuthValidator;
 import com.example.community.global.exceptions.*;
+import com.example.community.auth.session.RefreshSessionStore;
 import com.example.community.user.dto.*;
 import com.example.community.user.entity.User;
 import com.example.community.user.entity.UserCredential;
@@ -22,7 +23,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.Optional;
 
-import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 import static org.mockito.Mockito.*;
@@ -34,8 +34,6 @@ public class UserServiceTest {
     @Mock
     UserCredentialRepository userCredentialRepository;
     @Mock
-    JwtTokenProvider jwtTokenProvider;
-    @Mock
     AuthValidator authValidator;
     @Mock
     UserFactory userFactory;
@@ -44,15 +42,14 @@ public class UserServiceTest {
 
     @Mock
     PasswordEncoder passwordEncoder;
+    @Mock
+    RefreshSessionStore refreshSessionStore;
 
     @InjectMocks
     UserService userService;
 
     User user;
     UserCredential credential;
-    JwtToken jwtToken;
-
-    LoginRequestDTO loginRequest;
     SignUpRequestDTO signUpRequest;
     ModifyInfoRequestDTO modifyInfoRequest;
     ModifyPasswordRequestDTO modifyPasswordRequest;
@@ -61,12 +58,6 @@ public class UserServiceTest {
     void setUp() {
         user = new User(1L, "tester", "", UserRole.ROLE_USER, UserStatus.ACTIVE);
         credential = new UserCredential(user, "test@test.com", "encoded-password");
-
-        jwtToken = new JwtToken("Bearer", "access-token", "refresh-token");
-
-        loginRequest = new LoginRequestDTO();
-        loginRequest.setEmail("test@test.com");
-        loginRequest.setPassword("Test1234!");
 
         signUpRequest = new SignUpRequestDTO(
                 "new@test.com",
@@ -83,54 +74,6 @@ public class UserServiceTest {
         modifyPasswordRequest = new ModifyPasswordRequestDTO();
         modifyPasswordRequest.setPassword("New12345!");
         modifyPasswordRequest.setPasswordConfirm("New12345!");
-    }
-
-    @Test
-    @DisplayName("로그인 한 유저에게 토큰이 발급 된다.")
-    void login_returnsToken(){
-        when(userCredentialRepository.findByEmail(loginRequest.getEmail())).thenReturn(Optional.of(credential));
-        when(passwordEncoder.matches("Test1234!", "encoded-password")).thenReturn(true);
-        when(jwtTokenProvider.createJwtToken(user)).thenReturn(jwtToken);
-
-        LoginResponseDTO response = userService.login(loginRequest);
-
-        assertThat(response.getUserId()).isEqualTo(1L);
-        assertThat(response.getToken()).isEqualTo(jwtToken);
-        assertThat(response.getNickname()).isEqualTo("tester");
-
-        verify(jwtTokenProvider).createJwtToken(user);
-        verify(passwordEncoder).matches("Test1234!", "encoded-password");
-    }
-    @Test
-    @DisplayName("이메일이 등록되지 않으면 401")
-    void login_emailNotFound_throwsNotRegisteredException() {
-        when(userCredentialRepository.findByEmail(loginRequest.getEmail())).thenReturn(Optional.empty());
-
-        assertThatThrownBy(() -> userService.login(loginRequest)).isInstanceOf(NotRegisteredException.class);
-    }
-    @Test
-    @DisplayName("비밀번호가 다르면 401")
-    void login_passwordInvalid_throwsPasswordInvalidException() {
-        loginRequest.setPassword("Wrong1234!");
-
-        when(passwordEncoder.matches("Wrong1234!", "encoded-password")).thenReturn(false);
-        when(userCredentialRepository.findByEmail(loginRequest.getEmail())).thenReturn(Optional.of(credential));
-
-        assertThatThrownBy(() -> userService.login(loginRequest)).isInstanceOf(PasswordInvalidException.class);
-    }
-
-    @Test
-    @DisplayName("탈퇴한 유저가 로그인 시도 시 401")
-    void login_withDrawnAccount_throwsNotRegisteredException() {
-        user.withDraw();
-        when(userCredentialRepository.findByEmail(loginRequest.getEmail())).thenReturn(Optional.of(credential));
-        assertThatThrownBy(() -> userService.login(loginRequest)).isInstanceOf(NotRegisteredException.class);
-    }
-
-    @Test
-    @DisplayName("로그아웃 성공 시 예외가 발생하지 않는다.")
-    void logout_success() {
-        assertThatCode(() -> userService.logout(1L)).doesNotThrowAnyException();
     }
 
     @Test
@@ -245,6 +188,7 @@ public class UserServiceTest {
         assertThat(user.getStatus()).isEqualTo(UserStatus.WITHDRAWN);
 
         verify(authValidator).validateOwner(1L, 1L);
+        verify(refreshSessionStore).deleteByUserId(1L);
     }
     @Test
     @DisplayName("다른 사람의 id로 탈퇴를 시도 하면 403")

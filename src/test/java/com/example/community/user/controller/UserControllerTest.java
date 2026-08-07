@@ -1,9 +1,8 @@
 package com.example.community.user.controller;
 
-import com.example.community.global.auth.JwtToken;
-import com.example.community.global.auth.JwtTokenProvider;
-import com.example.community.global.config.SecurityConfig;
-import com.example.community.global.config.filter.JwtFilter;
+import com.example.community.global.security.jwt.JwtTokenProvider;
+import com.example.community.global.security.config.SecurityConfig;
+import com.example.community.global.security.filter.JwtFilter;
 import com.example.community.global.exceptions.*;
 import com.example.community.user.dto.*;
 import com.example.community.user.service.UserService;
@@ -49,116 +48,6 @@ public class UserControllerTest {
                 null,
                 List.of(new SimpleGrantedAuthority("ROLE_USER"))
         );
-    }
-
-    @Test
-    @DisplayName("로그인 성공 시 Jwt 토큰과 함께 200")
-    void login_success_returns200() throws Exception {
-        JwtToken token = new JwtToken("Bearer", "access-token", "refresh-token");
-
-        when(userService.login(any(LoginRequestDTO.class))).thenReturn(new LoginResponseDTO(1L, token, "tester", ""));
-
-        mockMvc.perform(post("/api/users/login")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                            {
-                              "email": "test@test.com",
-                              "password": "Test1234!"
-                            }
-                        """))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.message").value("user_login_success"))
-                .andExpect(jsonPath("$.data.token.accessToken").value("access-token"));
-    }
-
-    @Test
-    @DisplayName("로그인 이메일 양식이 잘못되면 400")
-    void login_invalidEmail_returns400() throws Exception {
-        mockMvc.perform(post("/api/users/login")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                            {
-                              "email": "wrong-email",
-                              "password": "Test1234!"
-                            }
-                        """))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value("invalid_input"));
-
-        verifyNoInteractions(userService);
-    }
-
-    @Test
-    @DisplayName("로그인 비밀번호 양식이 잘못되면 400")
-    void login_invalidPassword_returns400() throws Exception {
-        mockMvc.perform(post("/api/users/login")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                            {
-                              "email": "test@test.com",
-                              "password": "password"
-                            }
-                        """))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value("invalid_input"));
-
-        verifyNoInteractions(userService);
-    }
-
-    @Test
-    @DisplayName("등록되지 않은 이메일이면 401")
-    void login_emailNotFound_returns401() throws Exception {
-        when(userService.login(any(LoginRequestDTO.class))).thenThrow(new NotRegisteredException());
-
-        mockMvc.perform(post("/api/users/login")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                            {
-                              "email": "none@test.com",
-                              "password": "Test1234!"
-                            }
-                        """))
-                .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.message").value("user_not_found"));
-    }
-
-    @Test
-    @DisplayName("비밀번호가 틀리면 401")
-    void login_passwordInvalid_returns401() throws Exception {
-        when(userService.login(any(LoginRequestDTO.class))).thenThrow(new PasswordInvalidException());
-
-        mockMvc.perform(post("/api/users/login")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                            {
-                              "email": "test@test.com",
-                              "password": "Wrong1234!"
-                            }
-                        """))
-                .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.message").value("password_invalid"));
-    }
-
-    @Test
-    @DisplayName("로그아웃 성공 시 200")
-    void logout_success_returns200() throws Exception {
-        mockMvc.perform(post("/api/users/logout")
-                        .with(authentication(authentication)))
-                .andExpect(status().isOk());
-
-        verify(userService).logout(1L);
-    }
-
-    @Test
-    @DisplayName("로그아웃 시 토큰이 유효하지 않으면 401")
-    void logout_invalidToken_returns401() throws Exception {
-        when(jwtTokenProvider.validateToken("invalid-token")).thenReturn(false);
-
-        mockMvc.perform(post("/api/users/logout")
-                        .header("Authorization", "Bearer invalid-token"))
-                .andExpect(status().isUnauthorized());
-
-        verify(userService, never()).logout(anyLong());
     }
 
     @Test

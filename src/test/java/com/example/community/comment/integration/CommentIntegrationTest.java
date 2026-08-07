@@ -20,6 +20,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
@@ -30,8 +31,6 @@ import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.nullValue;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -42,7 +41,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 public class CommentIntegrationTest {
     @Autowired
     MockMvc mockMvc;
-
+    @Autowired
+    JdbcTemplate jdbcTemplate;
     @Autowired
     CommentRepository commentRepository;
     @Autowired
@@ -61,24 +61,49 @@ public class CommentIntegrationTest {
     Post post;
 
     @BeforeEach
-    void setUp(){
+    void setUp() {
         userCredentialRepository.deleteAll();
+
+        jdbcTemplate.update("UPDATE comments SET parent_comment_id = NULL");
         commentRepository.deleteAllInBatch();
+
         postRepository.deleteAll();
         userRepository.deleteAll();
 
-        postAuthor = userRepository.save(new User("author", "", UserRole.ROLE_USER, UserStatus.ACTIVE));
-        commenter = userRepository.save(new User("commenter", "", UserRole.ROLE_USER, UserStatus.ACTIVE));
-        otherUser = userRepository.save(new User("other", "", UserRole.ROLE_USER, UserStatus.ACTIVE));
+        postAuthor = userRepository.save(
+                new User("author", "", UserRole.ROLE_USER, UserStatus.ACTIVE)
+        );
+        commenter = userRepository.save(
+                new User("commenter", "", UserRole.ROLE_USER, UserStatus.ACTIVE)
+        );
+        otherUser = userRepository.save(
+                new User("other", "", UserRole.ROLE_USER, UserStatus.ACTIVE)
+        );
 
-        userCredentialRepository.save(new UserCredential(commenter, "commenter@test.com", passwordEncoder.encode("Test1234!")));
-        userCredentialRepository.save(new UserCredential(otherUser, "other@test.com", passwordEncoder.encode("Test1234!")));
+        userCredentialRepository.save(
+                new UserCredential(
+                        commenter,
+                        "commenter@test.com",
+                        passwordEncoder.encode("Test1234!")
+                )
+        );
 
-        post = postRepository.save(new Post(postAuthor, "testpost", "testpostbody", ""));
+        userCredentialRepository.save(
+                new UserCredential(
+                        otherUser,
+                        "other@test.com",
+                        passwordEncoder.encode("Test1234!")
+                )
+        );
+
+        post = postRepository.save(
+                new Post(postAuthor, "testpost", "testpostbody", "")
+        );
     }
 
     @AfterEach
     void tearDown() {
+        jdbcTemplate.update("UPDATE comments SET parent_comment_id = NULL");
         commentRepository.deleteAllInBatch();
     }
 
@@ -271,7 +296,7 @@ public class CommentIntegrationTest {
     }
 
     private String loginAndGetAccessToken() throws Exception {
-        String response = mockMvc.perform(post("/api/users/login")
+        String response = mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                         {
