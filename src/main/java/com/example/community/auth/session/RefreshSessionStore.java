@@ -25,6 +25,13 @@ public class RefreshSessionStore {
             if session.sessionId ~= ARGV[1] then return 0 end
             return redis.call('DEL', KEYS[1])
             """, Long.class);
+    private static final RedisScript<Long> IS_CURRENT_SESSION = new DefaultRedisScript<>("""
+            local value = redis.call('GET', KEYS[1])
+            if not value then return 0 end
+            local session = cjson.decode(value)
+            if session.sessionId ~= ARGV[1] then return 0 end
+            return 1
+            """, Long.class);
     private static final RedisScript<Long> ROTATE_IF_HASH_MATCHES = new DefaultRedisScript<>("""
             local value = redis.call('GET', KEYS[1])
             if not value then return 0 end
@@ -86,6 +93,18 @@ public class RefreshSessionStore {
     public boolean deleteIfSessionMatches(long userId, String sessionId) {
         Long result = redisTemplate.execute(
                 DELETE_IF_SESSION_MATCHES,
+                List.of(key(userId)),
+                sessionId
+        );
+        return Long.valueOf(1L).equals(result);
+    }
+
+    public boolean isCurrentSession(long userId, String sessionId) {
+        if (sessionId == null || sessionId.isBlank()) {
+            return false;
+        }
+        Long result = redisTemplate.execute(
+                IS_CURRENT_SESSION,
                 List.of(key(userId)),
                 sessionId
         );

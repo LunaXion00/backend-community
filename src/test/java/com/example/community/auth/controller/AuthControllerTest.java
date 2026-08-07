@@ -1,5 +1,6 @@
 package com.example.community.auth.controller;
 
+import com.example.community.auth.session.RefreshSessionStore;
 import com.example.community.auth.dto.LoginRequestDTO;
 import com.example.community.auth.dto.LoginResponseDTO;
 import com.example.community.global.security.jwt.JwtToken;
@@ -51,6 +52,8 @@ class AuthControllerTest {
     AuthService authService;
     @MockitoBean
     JwtTokenProvider jwtTokenProvider;
+    @MockitoBean
+    RefreshSessionStore refreshSessionStore;
 
     @Test
     @DisplayName("로그인 성공 시 access token과 refresh cookie를 반환한다.")

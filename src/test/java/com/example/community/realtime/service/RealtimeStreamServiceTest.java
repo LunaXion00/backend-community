@@ -524,4 +524,42 @@ class RealtimeStreamServiceTest {
         verify(activeEmitter).send(any(SseEmitter.SseEventBuilder.class));
         verify(activeEmitter).complete();
     }
+
+    @Test
+    @DisplayName("로그아웃 시 해당 session의 모든 SSE 연결을 종료한다")
+    void closesConnectionsBySessionId() {
+        SseEmitter matchingEmitter = mock(SseEmitter.class);
+        SseEmitter otherEmitter = mock(SseEmitter.class);
+        RealtimeConnection matchingConnection = new RealtimeConnection(
+                "matching", 1L, "session-logout", matchingEmitter
+        );
+        RealtimeConnection otherConnection = new RealtimeConnection(
+                "other", 1L, "session-current", otherEmitter
+        );
+        when(registry.findBySessionId("session-logout")).thenReturn(List.of(matchingConnection));
+
+        service.closeSessionConnections("session-logout");
+
+        verify(matchingEmitter).complete();
+        verify(otherEmitter, never()).complete();
+    }
+
+    @Test
+    @DisplayName("회원 탈퇴 시 해당 사용자의 모든 SSE 연결을 종료한다")
+    void closesConnectionsByUserId() {
+        SseEmitter matchingEmitter = mock(SseEmitter.class);
+        SseEmitter otherEmitter = mock(SseEmitter.class);
+        RealtimeConnection matchingConnection = new RealtimeConnection(
+                "matching", 1L, "session-1", matchingEmitter
+        );
+        RealtimeConnection otherConnection = new RealtimeConnection(
+                "other", 2L, "session-2", otherEmitter
+        );
+        when(registry.findAll()).thenReturn(List.of(matchingConnection, otherConnection));
+
+        service.closeUserConnections(1L);
+
+        verify(matchingEmitter).complete();
+        verify(otherEmitter, never()).complete();
+    }
 }

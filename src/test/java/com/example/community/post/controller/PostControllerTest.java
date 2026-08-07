@@ -1,5 +1,6 @@
 package com.example.community.post.controller;
 
+import com.example.community.auth.session.RefreshSessionStore;
 import com.example.community.global.security.jwt.JwtTokenProvider;
 import com.example.community.global.security.config.SecurityConfig;
 import com.example.community.global.security.filter.JwtFilter;
@@ -45,6 +46,8 @@ class PostControllerTest {
     PostService postService;
     @MockitoBean
     JwtTokenProvider jwtTokenProvider;
+    @MockitoBean
+    RefreshSessionStore refreshSessionStore;
 
     Authentication userAuthentication;
     Authentication adminAuthentication;

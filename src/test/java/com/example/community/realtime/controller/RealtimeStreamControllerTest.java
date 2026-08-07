@@ -1,5 +1,6 @@
 package com.example.community.realtime.controller;
 
+import com.example.community.auth.session.RefreshSessionStore;
 import com.example.community.global.security.jwt.JwtTokenProvider;
 import com.example.community.global.security.config.SecurityConfig;
 import com.example.community.global.security.filter.JwtFilter;
@@ -55,6 +56,8 @@ class RealtimeStreamControllerTest {
 
     @MockitoBean
     JwtTokenProvider jwtTokenProvider;
+    @MockitoBean
+    RefreshSessionStore refreshSessionStore;
 
     Authentication authentication;
 
@@ -67,6 +70,8 @@ class RealtimeStreamControllerTest {
         );
         when(jwtTokenProvider.validateAccessToken("access-token")).thenReturn(true);
         when(jwtTokenProvider.getAuthentication("access-token")).thenReturn(authentication);
+        when(jwtTokenProvider.getUserId("access-token")).thenReturn(1L);
+        when(refreshSessionStore.isCurrentSession(1L, "session-1")).thenReturn(true);
         when(jwtTokenProvider.getSessionId("access-token")).thenReturn("session-1");
         when(realtimeStreamService.connect(eq(1L), eq("session-1"), any(SseEmitter.class)))
                 .thenAnswer(invocation -> invocation.getArgument(2));

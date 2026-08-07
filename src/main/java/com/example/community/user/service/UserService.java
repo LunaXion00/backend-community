@@ -10,6 +10,7 @@ import com.example.community.user.factory.UserCredentialFactory;
 import com.example.community.user.factory.UserFactory;
 import com.example.community.user.repository.UserCredentialRepository;
 import com.example.community.user.repository.UserRepository;
+import com.example.community.realtime.service.RealtimeStreamService;
 import jakarta.validation.Valid;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -28,8 +29,9 @@ public class UserService {
     private final UserCredentialFactory userCredentialFactory;
     private final PasswordEncoder passwordEncoder;
     private final RefreshSessionStore refreshSessionStore;
+    private final RealtimeStreamService realtimeStreamService;
 
-    public UserService(UserRepository userRepository, UserCredentialRepository userCredentialRepository, AuthValidator authValidator, UserFactory userFactory, UserCredentialFactory userCredentialFactory, PasswordEncoder passwordEncoder, RefreshSessionStore refreshSessionStore) {
+    public UserService(UserRepository userRepository, UserCredentialRepository userCredentialRepository, AuthValidator authValidator, UserFactory userFactory, UserCredentialFactory userCredentialFactory, PasswordEncoder passwordEncoder, RefreshSessionStore refreshSessionStore, RealtimeStreamService realtimeStreamService) {
         this.userRepository = userRepository;
         this.userCredentialRepository = userCredentialRepository;
         this.authValidator = authValidator;
@@ -37,6 +39,7 @@ public class UserService {
         this.userCredentialFactory = userCredentialFactory;
         this.passwordEncoder = passwordEncoder;
         this.refreshSessionStore = refreshSessionStore;
+        this.realtimeStreamService = realtimeStreamService;
     }
     // ----------------------------------- 회원가입(유저 생성) -----------------------------------
     @Transactional
@@ -82,6 +85,7 @@ public class UserService {
         User user = userRepository.findById(targetUserId).orElseThrow(NotRegisteredException::new);
         user.withDraw();
         refreshSessionStore.deleteByUserId(targetUserId);
+        realtimeStreamService.closeUserConnections(targetUserId);
         return new WithdrawResponseDTO(LocalDateTime.now());
     }
 }

@@ -12,6 +12,7 @@ import com.example.community.user.factory.UserCredentialFactory;
 import com.example.community.user.factory.UserFactory;
 import com.example.community.user.repository.UserCredentialRepository;
 import com.example.community.user.repository.UserRepository;
+import com.example.community.realtime.service.RealtimeStreamService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -44,6 +45,8 @@ public class UserServiceTest {
     PasswordEncoder passwordEncoder;
     @Mock
     RefreshSessionStore refreshSessionStore;
+    @Mock
+    RealtimeStreamService realtimeStreamService;
 
     @InjectMocks
     UserService userService;
@@ -189,6 +192,7 @@ public class UserServiceTest {
 
         verify(authValidator).validateOwner(1L, 1L);
         verify(refreshSessionStore).deleteByUserId(1L);
+        verify(realtimeStreamService).closeUserConnections(1L);
     }
     @Test
     @DisplayName("다른 사람의 id로 탈퇴를 시도 하면 403")

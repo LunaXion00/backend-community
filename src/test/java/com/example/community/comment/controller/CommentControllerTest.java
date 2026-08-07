@@ -1,5 +1,6 @@
 package com.example.community.comment.controller;
 
+import com.example.community.auth.session.RefreshSessionStore;
 import com.example.community.comment.dto.CommentDTO;
 import com.example.community.comment.dto.CommentRemoveResponseDTO;
 import com.example.community.comment.dto.CommentRequestDTO;
@@ -46,6 +47,8 @@ public class CommentControllerTest {
     CommentService commentService;
     @MockitoBean
     JwtTokenProvider jwtTokenProvider;
+    @MockitoBean
+    RefreshSessionStore refreshSessionStore;
 
     Authentication authentication;
     CommentResponseDTO responseDTO = new CommentResponseDTO(

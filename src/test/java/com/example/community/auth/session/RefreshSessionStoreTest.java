@@ -117,6 +117,24 @@ class RefreshSessionStoreTest {
     }
 
     @Test
+    @DisplayName("현재 sessionId와 일치하는 Redis 세션만 유효한 세션으로 판단한다")
+    void recognizesCurrentSessionOnlyWhenSessionIdMatches() {
+        when(redisTemplate.execute(ArgumentMatchers.<RedisScript<Long>>any(), eq(List.of(KEY)), eq(SESSION_ID)))
+                .thenReturn(1L);
+
+        assertThat(store.isCurrentSession(USER_ID, SESSION_ID)).isTrue();
+    }
+
+    @Test
+    @DisplayName("Redis 세션이 없거나 sessionId가 다르면 유효하지 않은 세션으로 판단한다")
+    void rejectsMissingOrDifferentCurrentSession() {
+        when(redisTemplate.execute(ArgumentMatchers.<RedisScript<Long>>any(), eq(List.of(KEY)), eq("other-session")))
+                .thenReturn(0L);
+
+        assertThat(store.isCurrentSession(USER_ID, "other-session")).isFalse();
+    }
+
+    @Test
     @DisplayName("현재 sessionId가 일치할 때만 세션을 삭제한다")
     void deletesOnlyWhenSessionIdMatches() {
         when(redisTemplate.execute(ArgumentMatchers.<RedisScript<Long>>any(), eq(List.of(KEY)), eq(SESSION_ID))).thenReturn(1L);

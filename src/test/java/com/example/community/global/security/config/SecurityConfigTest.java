@@ -2,6 +2,7 @@ package com.example.community.global.security.config;
 
 import com.example.community.global.security.jwt.JwtToken;
 import com.example.community.global.security.jwt.JwtTokenProvider;
+import com.example.community.auth.session.RefreshSessionStore;
 import com.example.community.auth.controller.AuthController;
 import com.example.community.auth.dto.LoginResponseDTO;
 import com.example.community.auth.service.AuthService;
@@ -50,6 +51,8 @@ public class SecurityConfigTest {
     PostService postService;
     @MockitoBean
     JwtTokenProvider jwtTokenProvider;
+    @MockitoBean
+    RefreshSessionStore refreshSessionStore;
 
     private final UserFactory userFactory = new UserFactory();
 

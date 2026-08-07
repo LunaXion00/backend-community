@@ -98,10 +98,20 @@ public class RealtimeStreamService {
                     .name("session-replaced")
                     .data(Map.of("reason", "new_login"));
             sendEventToClient(connection.getConnectionId(), connection.getEmitter(), sseEvent);
-            try {
-                connection.getEmitter().complete();
-            } catch (RuntimeException exception) {
-                registry.remove(connection.getConnectionId(), connection.getEmitter());
+            closeConnection(connection);
+        }
+    }
+
+    public void closeSessionConnections(String sessionId) {
+        for (RealtimeConnection connection : registry.findBySessionId(sessionId)) {
+            closeConnection(connection);
+        }
+    }
+
+    public void closeUserConnections(long userId) {
+        for (RealtimeConnection connection : registry.findAll()) {
+            if (connection.getUserId() == userId) {
+                closeConnection(connection);
             }
         }
     }
@@ -118,6 +128,14 @@ public class RealtimeStreamService {
             sseEmitter.send(event);
         } catch(IOException | RuntimeException exception){
             registry.remove(connectionId, sseEmitter);
+        }
+    }
+
+    private void closeConnection(RealtimeConnection connection) {
+        try {
+            connection.getEmitter().complete();
+        } catch (RuntimeException exception) {
+            registry.remove(connection.getConnectionId(), connection.getEmitter());
         }
     }
 

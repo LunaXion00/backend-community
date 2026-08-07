@@ -1,11 +1,14 @@
 package com.example.community.global.security.filter;
 
+import com.example.community.auth.session.RefreshSessionStore;
 import com.example.community.global.security.jwt.JwtTokenProvider;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.redis.RedisConnectionFailureException;
+import org.springframework.data.redis.RedisSystemException;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -21,17 +24,28 @@ import java.nio.charset.StandardCharsets;
 public class JwtFilter extends OncePerRequestFilter {
 
     private final JwtTokenProvider jwtTokenProvider;
+    private final RefreshSessionStore refreshSessionStore;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
-
-        // 1. 헤더에서 토큰 추출
         String token = resolveToken(request);
 
         if (token != null) {
             if (jwtTokenProvider.validateAccessToken(token)) {
+                try {
+                    long userId = jwtTokenProvider.getUserId(token);
+                    String sessionId = jwtTokenProvider.getSessionId(token);
+                    if (!refreshSessionStore.isCurrentSession(userId, sessionId)) {
+                        writeUnauthorizedResponse(response, "access_token_invalid");
+                        return;
+                    }
+                } catch (RedisConnectionFailureException | RedisSystemException exception) {
+                    writeServiceUnavailableResponse(response);
+                    return;
+                }
+
                 Authentication authentication = jwtTokenProvider.getAuthentication(token);
                 SecurityContextHolder.getContext().setAuthentication(authentication);
             } else {
@@ -54,7 +68,15 @@ public class JwtFilter extends OncePerRequestFilter {
     }
 
     private void writeUnauthorizedResponse(HttpServletResponse response, String message) throws IOException {
-        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+        writeResponse(response, HttpServletResponse.SC_UNAUTHORIZED, message);
+    }
+
+    private void writeServiceUnavailableResponse(HttpServletResponse response) throws IOException {
+        writeResponse(response, HttpServletResponse.SC_SERVICE_UNAVAILABLE, "session_unavailable");
+    }
+
+    private void writeResponse(HttpServletResponse response, int status, String message) throws IOException {
+        response.setStatus(status);
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         response.setCharacterEncoding(StandardCharsets.UTF_8.name());
         response.getWriter().write("{\"message\":\"" + message + "\",\"data\":null}");
@@ -66,5 +88,14 @@ public class JwtFilter extends OncePerRequestFilter {
             return bearerToken.substring(7);
         }
         return null;
+    }
+    @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        String method = request.getMethod();
+        String uri = request.getRequestURI();
+
+        return "OPTIONS".equals(method) || "POST".equals(method) && (
+                "/api/auth/login".equals(uri) || "/api/auth/refresh".equals(uri) || "/api/users/signup".equals(uri)
+        ) || uri.startsWith("/h2-console/");
     }
 }

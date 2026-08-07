@@ -217,6 +217,7 @@ class AuthServiceTest {
         authService.logout(1L, "session-1");
 
         verify(refreshSessionStore).deleteIfSessionMatches(1L, "session-1");
+        verify(realtimeStreamService).closeSessionConnections("session-1");
     }
 
     @Test
@@ -227,6 +228,7 @@ class AuthServiceTest {
         assertThatCode(() -> authService.logout(1L, "old-session")).doesNotThrowAnyException();
 
         verify(refreshSessionStore).deleteIfSessionMatches(1L, "old-session");
+        verifyNoInteractions(realtimeStreamService);
         verifyNoMoreInteractions(refreshSessionStore);
     }
 }

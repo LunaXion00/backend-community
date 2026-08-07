@@ -1,5 +1,6 @@
 package com.example.community.post.draft.controller;
 
+import com.example.community.auth.session.RefreshSessionStore;
 import com.example.community.global.security.jwt.JwtTokenProvider;
 import com.example.community.global.security.config.SecurityConfig;
 import com.example.community.global.security.filter.JwtFilter;
@@ -49,6 +50,8 @@ public class PostDraftControllerTest {
     PostDraftService postDraftService;
     @MockitoBean
     JwtTokenProvider jwtTokenProvider;
+    @MockitoBean
+    RefreshSessionStore refreshSessionStore;
 
     Authentication authentication;
     PostDraftResponseDTO draftResponseDTO;
